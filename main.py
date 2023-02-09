@@ -2,8 +2,8 @@ import pygame
 from Game import Game
 from Camera import Camera
 
-width = 1080
-height = 720
+width = 1920 - 100
+height = 1080 - 100
 
 camera = Camera(width, height, 1)
 

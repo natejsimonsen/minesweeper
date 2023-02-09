@@ -1,19 +1,23 @@
+import sys
 import math
 import random
 import pygame
 from Colors import Colors
 
+sys.setrecursionlimit(15000)
 
 class Grid:
     INERT = 0
     MINE = 1
     COVERED = 0
     UNCOVERED = 1
+    FLAG_IMG = pygame.image.load('./assets/images/flag.png')
+    BOMB_IMG = pygame.image.load('./assets/images/bomb.png')
 
     def __init__(self, screen, camera, font):
         self.screen = screen
-        self.rows = 14
-        self.cols = 35
+        self.rows = 10
+        self.cols = 15
         self.square_size = 80
         self.font = pygame.font.SysFont(None, self.square_size * 3 // 4)
         self.mine_rate = .2
@@ -26,7 +30,12 @@ class Grid:
         self.flags = []
         self.mines = []
         self.debug = False
-        self.end_of_game = False
+        self.won = False
+        self.lost = False
+        flag_image = pygame.image.load('./assets/images/flag.png')
+        bomb_image = pygame.image.load('./assets/images/bomb.png')
+        self.flag_image = pygame.transform.scale(flag_image, (self.square_size * 3 // 4, self.square_size * 3 // 4))
+        self.bomb_image = pygame.transform.scale(bomb_image, (self.square_size * 8 // 12, self.square_size * 11 // 12))
 
     def generate_mines(self, clicked_row, clicked_col):
         total_tiles = self.rows * self.cols
@@ -89,7 +98,7 @@ class Grid:
 
     def check_for_win(self):
         if sorted(self.flags) == sorted(self.mines):
-            print("you win!")
+            self.won = True
 
     def handle_click(self, event, mouse_position):
         mouse_x, mouse_y = mouse_position
@@ -108,8 +117,7 @@ class Grid:
                 self.flags.remove((row, col))
         elif (row, col) not in self.flags:
             if self.grid[row][col][1] == Grid.MINE:
-                print("You lose")
-                self.end_of_game = True
+                self.lost = True
                 return
             self.grid[row][col][0] = Grid.UNCOVERED
             self.reveal_surrounding_cells(row, col)
@@ -159,12 +167,6 @@ class Grid:
                     if (i + j) % 2 == 1:
                         square_color = Colors.UNCOVERED_SQUARE_ALT
 
-                if (i, j) in self.flags:
-                    square_color = Colors.FLAG
-
-                if tile_type == Grid.MINE and self.end_of_game:
-                    square_color = Colors.MINE
-
                 rect = (
                     j * self.square_size * self.camera.zoom + self.camera.offset_x,
                     i * self.square_size * self.camera.zoom + self.camera.offset_y,
@@ -174,8 +176,23 @@ class Grid:
                 pygame.draw.rect(self.screen, square_color, rect)
                 text = self.font.render(surrounding_mines_text, True, Colors.TEXT)
                 text_rect = text.get_rect(center=(
-                rect[0] + self.square_size * self.camera.zoom // 2, rect[1] + self.square_size * self.camera.zoom // 2))
+                    rect[0] + self.square_size * self.camera.zoom // 2,
+                    rect[1] + self.square_size * self.camera.zoom // 2))
                 self.screen.blit(text, text_rect)
+
+                if (i, j) in self.flags:
+                    img_rect = self.flag_image.get_rect(center=(
+                        rect[0] + self.square_size * self.camera.zoom // 2,
+                        rect[1] + self.square_size * self.camera.zoom // 2
+                    ))
+                    self.screen.blit(self.flag_image, img_rect)
+
+                if tile_type == Grid.MINE and self.lost:
+                    bomb_rect = self.bomb_image.get_rect(center=(
+                        rect[0] + self.square_size * self.camera.zoom // 2,
+                        rect[1] + self.square_size * self.camera.zoom // 2
+                    ))
+                    self.screen.blit(self.bomb_image, bomb_rect)
 
                 if self.debug:
                     self.draw_font(
@@ -185,3 +202,9 @@ class Grid:
                             i * self.square_size + self.square_size // 4 + self.camera.offset_y
                         )
                     )
+
+        self.draw_font(f"Mines: {self.num_current_mines}, Flags: {len(self.flags)}", (20, 20))
+        if self.won:
+            self.draw_font("You Won! Click to restart the game", (20, 60))
+        if self.lost:
+            self.draw_font("You Lost! Click to restart same game", (20, 60))
